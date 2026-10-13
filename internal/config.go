@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-const CONFIGPATH string = "/home/spacemonkey/Projects/bootdev-learning/go/.gatorconfig.json"
+const CONFIGPATH string = "/home/spacemonkey/.gatorconfig.json"
 
 type Config struct {
 	DbURL           string `json:"db_url"`
