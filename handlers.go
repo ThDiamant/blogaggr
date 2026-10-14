@@ -16,12 +16,17 @@ func handleLogin(s *state, cmd command) error {
 	}
 
 	username := cmd.args[0]
-	err := s.config.SetUser(username)
+	user, err := s.db.GetUser(context.Background(), username)
+	if err != nil {
+		return fmt.Errorf("User %s does not exist.", username)
+	}
+
+	err = s.config.SetUser(user.Name)
 	if err != nil {
 		return fmt.Errorf("Error while logging in: %w\n", err)
 	}
 
-	fmt.Printf("User %s logged in.\n", username)
+	fmt.Printf("User %s logged in.\n", user.Name)
 	return nil
 }
 
@@ -43,7 +48,13 @@ func handleRegister(s *state, cmd command) error {
 	}
 
 	fmt.Printf("User %s registered successfully.\n", user.Name)
-	fmt.Println(user)
+
+	err = s.config.SetUser(user.Name)
+	if err != nil {
+		return fmt.Errorf("Error while logging in: %w\n", err)
+	}
+
+	fmt.Printf("User %s logged in.\n", user.Name)
 
 	return nil
 }
