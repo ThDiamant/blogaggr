@@ -58,3 +58,13 @@ func handleRegister(s *state, cmd command) error {
 
 	return nil
 }
+
+func handleReset(s *state, cmd command) error {
+	if err := s.db.DeleteUsers(context.Background()); err != nil {
+		return fmt.Errorf("Could not delete data from users table: %w\n", err)
+	}
+
+	fmt.Printf("users table data deleted successfully.\n")
+
+	return nil
+}
