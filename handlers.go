@@ -87,3 +87,15 @@ func handleUsers(s *state, cmd command) error {
 
 	return nil
 }
+
+func handleAgg(s *state, cmd command) error {
+	url := "https://www.wagslane.dev/index.xml"
+	rss, err := fetchFeed(context.Background(), url)
+	if err != nil {
+		return err
+	}
+
+	fmt.Print(rss)
+
+	return nil
+}
