@@ -100,6 +100,16 @@ func handleAgg(s *state, cmd command) error {
 	return nil
 }
 
+func getCurrentUserData(s *state) (database.User, error) {
+	currentUserName := s.config.CurrentUserName
+	currentUser, err := s.db.GetUser(context.Background(), currentUserName)
+	if err != nil {
+		return database.User{}, fmt.Errorf("Error while getting current user data from the db.\n")
+	}
+
+	return currentUser, nil
+}
+
 func handleAddFeed(s *state, cmd command) error {
 	if cmd.args == nil {
 		return fmt.Errorf("Please provide a feed to add.\n")
@@ -111,9 +121,7 @@ func handleAddFeed(s *state, cmd command) error {
 
 	name, url := cmd.args[0], cmd.args[1]
 
-	cxt := context.Background()
-	currentUserName := s.config.CurrentUserName
-	currentUser, err := s.db.GetUser(cxt, currentUserName)
+	currentUser, err := getCurrentUserData(s)
 	if err != nil {
 		return fmt.Errorf("Error while getting current user data from the db.\n")
 	}
@@ -127,12 +135,35 @@ func handleAddFeed(s *state, cmd command) error {
 		Url:       url,
 		UserID:    currentUser.ID,
 	}
-	feed, err := s.db.CreateFeed(cxt, feedParams)
+	feed, err := s.db.CreateFeed(context.Background(), feedParams)
 	if err != nil {
 		return fmt.Errorf("Error while creating feed: %w\n", err)
 	}
 
-	fmt.Printf("Feed %s created successfully for user %s.\n", feed.Name, currentUserName)
+	fmt.Printf("Feed %s created successfully for user %s.\n", feed.Name, currentUser.Name)
+
+	return nil
+}
+
+func handleFeeds(s *state, cmd command) error {
+	feeds, err := s.db.GetFeeds(context.Background())
+	if err != nil {
+		return fmt.Errorf("Error while getting feeds data: %w\n", err)
+	}
+
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("Error while getting users: %w \n")
+	}
+
+	userMap := make(map[uuid.UUID]database.User)
+	for _, user := range users {
+		userMap[user.ID] = user
+	}
+
+	for _, feed := range feeds {
+		fmt.Printf("* Name: %s, User: %s, URL: %s\n", feed.Name, userMap[feed.UserID].Name, feed.Url)
+	}
 
 	return nil
 }

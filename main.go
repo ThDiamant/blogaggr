@@ -33,6 +33,7 @@ func main() {
 	commands.register("users", handleUsers)
 	commands.register("agg", handleAgg)
 	commands.register("addfeed", handleAddFeed)
+	commands.register("feeds", handleFeeds)
 
 	inputArgs := os.Args
 	if len(inputArgs) < 2 {
@@ -61,6 +62,4 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	fmt.Println(config)
 }
