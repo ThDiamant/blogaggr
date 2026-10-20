@@ -99,3 +99,40 @@ func handleAgg(s *state, cmd command) error {
 
 	return nil
 }
+
+func handleAddFeed(s *state, cmd command) error {
+	if cmd.args == nil {
+		return fmt.Errorf("Please provide a feed to add.\n")
+	}
+
+	if len(cmd.args) != 2 {
+		return fmt.Errorf("Please provide a feed name and URL.\n")
+	}
+
+	name, url := cmd.args[0], cmd.args[1]
+
+	cxt := context.Background()
+	currentUserName := s.config.CurrentUserName
+	currentUser, err := s.db.GetUser(cxt, currentUserName)
+	if err != nil {
+		return fmt.Errorf("Error while getting current user data from the db.\n")
+	}
+
+	now := sql.NullTime{Time: time.Now(), Valid: true}
+	feedParams := database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: now,
+		UpdatedAt: now,
+		Name:      name,
+		Url:       url,
+		UserID:    currentUser.ID,
+	}
+	feed, err := s.db.CreateFeed(cxt, feedParams)
+	if err != nil {
+		return fmt.Errorf("Error while creating feed: %w\n", err)
+	}
+
+	fmt.Printf("Feed %s created successfully for user %s.\n", feed.Name, currentUserName)
+
+	return nil
+}
