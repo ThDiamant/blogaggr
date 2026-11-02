@@ -100,17 +100,7 @@ func handleAgg(s *state, cmd command) error {
 	return nil
 }
 
-func getCurrentUserData(s *state) (database.User, error) {
-	currentUserName := s.config.CurrentUserName
-	currentUser, err := s.db.GetUser(context.Background(), currentUserName)
-	if err != nil {
-		return database.User{}, fmt.Errorf("Error while getting current user data from the db.\n")
-	}
-
-	return currentUser, nil
-}
-
-func handleAddFeed(s *state, cmd command) error {
+func handleAddFeed(s *state, cmd command, user database.User) error {
 	if cmd.args == nil {
 		return fmt.Errorf("Please provide a feed to add.\n")
 	}
@@ -121,11 +111,6 @@ func handleAddFeed(s *state, cmd command) error {
 
 	name, url := cmd.args[0], cmd.args[1]
 
-	currentUser, err := getCurrentUserData(s)
-	if err != nil {
-		return fmt.Errorf("Error while getting current user data from the db.\n")
-	}
-
 	now := sql.NullTime{Time: time.Now(), Valid: true}
 	ctx := context.Background()
 	feedParams := database.CreateFeedParams{
@@ -134,7 +119,7 @@ func handleAddFeed(s *state, cmd command) error {
 		UpdatedAt: now,
 		Name:      name,
 		Url:       url,
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 	}
 	feed, err := s.db.CreateFeed(ctx, feedParams)
 	if err != nil {
@@ -145,13 +130,13 @@ func handleAddFeed(s *state, cmd command) error {
 		ID:        uuid.New(),
 		CreatedAt: now,
 		UpdatedAt: now,
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 		FeedID:    feed.ID,
 	}
 
 	row, err := s.db.CreateFeedFollow(ctx, feedFollowParams)
 	if err != nil {
-		return fmt.Errorf("Error while following %s feed for user %s", feed.Name, currentUser.Name)
+		return fmt.Errorf("Error while following %s feed for user %s", feed.Name, user.Name)
 	}
 
 	fmt.Printf("User %s followed feed %s successfully.\n", row.UserName, row.FeedName)
@@ -167,7 +152,7 @@ func handleFeeds(s *state, cmd command) error {
 
 	users, err := s.db.GetUsers(context.Background())
 	if err != nil {
-		return fmt.Errorf("Error while getting users: %w \n")
+		return fmt.Errorf("Error while getting users: %w \n", err)
 	}
 
 	userMap := make(map[uuid.UUID]database.User)
@@ -182,7 +167,7 @@ func handleFeeds(s *state, cmd command) error {
 	return nil
 }
 
-func handleFollow(s *state, cmd command) error {
+func handleFollow(s *state, cmd command, user database.User) error {
 	if cmd.args == nil {
 		return fmt.Errorf("Please provide a feed to follow.\n")
 	}
@@ -191,12 +176,7 @@ func handleFollow(s *state, cmd command) error {
 	ctx := context.Background()
 	feed, err := s.db.GetFeed(ctx, feed_url)
 	if err != nil {
-		return fmt.Errorf("Error while getting feed data: %w \n")
-	}
-
-	currentUser, err := getCurrentUserData(s)
-	if err != nil {
-		return fmt.Errorf("Error while getting the current user: %w\n")
+		return fmt.Errorf("Error while getting feed data: %w \n", err)
 	}
 
 	now := sql.NullTime{Time: time.Now(), Valid: true}
@@ -204,13 +184,13 @@ func handleFollow(s *state, cmd command) error {
 		ID:        uuid.New(),
 		CreatedAt: now,
 		UpdatedAt: now,
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 		FeedID:    feed.ID,
 	}
 
 	row, err := s.db.CreateFeedFollow(ctx, feedFollowParams)
 	if err != nil {
-		return fmt.Errorf("Error while following %s feed for user %s", feed.Name, currentUser.Name)
+		return fmt.Errorf("Error while following %s feed for user %s", feed.Name, user.Name)
 	}
 
 	fmt.Printf("User %s followed feed %s successfully.\n", row.UserName, row.FeedName)
@@ -218,15 +198,10 @@ func handleFollow(s *state, cmd command) error {
 	return nil
 }
 
-func handleFollowing(s *state, cmd command) error {
-	currentUser, err := getCurrentUserData(s)
+func handleFollowing(s *state, cmd command, user database.User) error {
+	curUserFeeds, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err != nil {
-		return fmt.Errorf("Error while getting current user data: %w\n`")
-	}
-
-	curUserFeeds, err := s.db.GetFeedFollowsForUser(context.Background(), currentUser.ID)
-	if err != nil {
-		return fmt.Errorf("Error while getting the current user's feed follows: %w\n")
+		return fmt.Errorf("Error while getting the current user's feed follows: %w\n", err)
 	}
 
 	for _, curUserFeed := range curUserFeeds {
@@ -234,4 +209,25 @@ func handleFollowing(s *state, cmd command) error {
 	}
 
 	return nil
+}
+
+func getCurrentUserData(s *state) (database.User, error) {
+	currentUserName := s.config.CurrentUserName
+	currentUser, err := s.db.GetUser(context.Background(), currentUserName)
+	if err != nil {
+		return database.User{}, fmt.Errorf("Error while getting current user data from the db.\n")
+	}
+
+	return currentUser, nil
+}
+
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+	return func(s *state, cmd command) error {
+		currentUser, err := getCurrentUserData(s)
+		if err != nil {
+			return fmt.Errorf("Error while getting current user data: %w\n", err)
+		}
+
+		return handler(s, cmd, currentUser)
+	}
 }

@@ -32,10 +32,10 @@ func main() {
 	commands.register("reset", handleReset)
 	commands.register("users", handleUsers)
 	commands.register("agg", handleAgg)
-	commands.register("addfeed", handleAddFeed)
+	commands.register("addfeed", middlewareLoggedIn(handleAddFeed))
 	commands.register("feeds", handleFeeds)
-	commands.register("follow", handleFollow)
-	commands.register("following", handleFollowing)
+	commands.register("follow", middlewareLoggedIn(handleFollow))
+	commands.register("following", middlewareLoggedIn(handleFollowing))
 
 	inputArgs := os.Args
 	if len(inputArgs) < 2 {
